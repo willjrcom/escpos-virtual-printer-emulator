@@ -63,34 +63,54 @@ impl ReceiptViewer {
         }
 
         // Paper simulation
-        let paper_width = printer_state.get_paper_width_dots();
-        let _max_width = (paper_width as f32 * 0.5) as f32; // Scale down for display
-        
-        ui.group(|ui| {
-            // Paper header
-            ui.horizontal(|ui| {
-                ui.label(format!("📄 Paper: {:?}", printer_state.paper_width));
-                ui.label(format!("🔤 Font: {:?}", printer_state.current_font));
-                ui.label(format!("📐 Align: {:?}", printer_state.justification));
-            });
-
-            ui.separator();
-
-            // Receipt content
-            for (line_num, line) in buffer.iter().enumerate() {
-                if !line.is_empty() {
-                    ui.horizontal(|ui| {
-                        ui.label(format!("{:03}", line_num + 1));
-                        ui.label("│");
-                        ui.label(line);
-                    });
-                } else {
-                    ui.label(""); // Empty line
-                }
-            }
-
-            // Paper footer
-            ui.separator();
+        ui.vertical_centered(|ui| {
+            let paper_width = 300.0; // Proporcional a 80mm para exibição
+            
+            egui::Frame::none()
+                .fill(egui::Color32::WHITE)
+                .outer_margin(10.0)
+                .inner_margin(egui::Margin::symmetric(20.0, 10.0))
+                .shadow(egui::epaint::Shadow {
+                    extrusion: 8.0,
+                    color: egui::Color32::from_black_alpha(20),
+                })
+                .show(ui, |ui| {
+                    ui.set_width(paper_width);
+                    ui.spacing_mut().item_spacing.y = 2.0;
+                    
+                    for line in buffer {
+                        let alignment = match line.justification {
+                            crate::escpos::commands::Justification::Left => egui::Align::Min,
+                            crate::escpos::commands::Justification::Center => egui::Align::Center,
+                            crate::escpos::commands::Justification::Right => egui::Align::Max,
+                        };
+                        
+                        ui.with_layout(egui::Layout::top_down(alignment), |ui| {
+                            if line.text.is_empty() {
+                                ui.label(" ");
+                            } else {
+                                let mut text = egui::RichText::new(&line.text)
+                                    .color(egui::Color32::BLACK)
+                                    .family(egui::FontFamily::Monospace)
+                                    .size(line.font_size as f32 + 2.0);
+                                
+                                if line.emphasis {
+                                    text = text.strong();
+                                }
+                                if line.italic {
+                                    text = text.italics();
+                                }
+                                if line.underline {
+                                    text = text.underline();
+                                }
+                                
+                                ui.label(text);
+                            }
+                        });
+                    }
+                });
+            
+            ui.add_space(20.0);
             ui.label("✂️ Cut line");
         });
     }

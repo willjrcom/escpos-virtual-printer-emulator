@@ -31,6 +31,31 @@ impl PaperWidth {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PrintLine {
+    pub text: String,
+    pub justification: Justification,
+    pub font: Font,
+    pub emphasis: bool,
+    pub underline: bool,
+    pub italic: bool,
+    pub font_size: u32,
+}
+
+impl PrintLine {
+    pub fn new(justification: Justification, font: Font, emphasis: bool, underline: bool, italic: bool, font_size: u32) -> Self {
+        Self {
+            text: String::new(),
+            justification,
+            font,
+            emphasis,
+            underline,
+            italic,
+            font_size,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PrinterState {
     pub paper_width: PaperWidth,
     pub current_font: Font,
@@ -38,7 +63,7 @@ pub struct PrinterState {
     pub emphasis: bool,
     pub underline: bool,
     pub italic: bool,
-    pub buffer: Vec<String>,
+    pub buffer: Vec<PrintLine>,
     pub line_height: u32,
     pub font_size: u32,
     pub dpi: u32,
@@ -111,38 +136,56 @@ impl PrinterState {
     }
 
     fn add_text(&mut self, text: &str) {
+        if self.buffer.is_empty() {
+            self.add_new_line();
+        }
+
         if let Some(last_line) = self.buffer.last_mut() {
-            // Vérifier si le texte dépasse la largeur du papier
-            let max_chars = self.paper_width.get_max_chars(self.font_size);
-            let current_length = last_line.chars().count();
+            // Vérifier si le texte dépasse la largeur du papel
+            let max_chars = self.paper_width.get_max_chars(last_line.font_size);
+            let current_length = last_line.text.chars().count();
             
             if current_length + text.chars().count() > max_chars as usize {
-                // Le texte dépasse, créer une nouvelle ligne
+                // Le texte dépasse, criar uma nova linha
                 self.add_new_line();
-                self.buffer.last_mut().unwrap().push_str(text);
+                self.buffer.last_mut().unwrap().text.push_str(text);
             } else {
-                last_line.push_str(text);
+                last_line.text.push_str(text);
             }
-        } else {
-            self.buffer.push(text.to_string());
         }
     }
 
     fn add_new_line(&mut self) {
-        self.buffer.push(String::new());
+        self.buffer.push(PrintLine::new(
+            self.justification.clone(),
+            self.current_font.clone(),
+            self.emphasis,
+            self.underline,
+            self.italic,
+            self.font_size,
+        ));
     }
 
     fn add_separator(&mut self) {
         let max_chars = self.paper_width.get_max_chars(self.font_size);
         let separator = "-".repeat(max_chars as usize);
-        self.buffer.push(separator);
+        self.buffer.push(PrintLine {
+            text: separator,
+            justification: Justification::Center, // Separadores geralmente são centralizados
+            font: Font::FontA,
+            emphasis: false,
+            underline: false,
+            italic: false,
+            font_size: self.font_size,
+        });
+        self.add_new_line();
     }
 
     pub fn clear_buffer(&mut self) {
         self.buffer.clear();
     }
 
-    pub fn get_buffer(&self) -> &[String] {
+    pub fn get_buffer(&self) -> &[PrintLine] {
         &self.buffer
     }
 
