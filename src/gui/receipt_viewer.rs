@@ -64,7 +64,7 @@ impl ReceiptViewer {
 
         // Paper simulation
         ui.vertical_centered(|ui| {
-            let paper_width = 300.0; // Proporcional a 80mm para exibição
+            let paper_width = 350.0; // Proporcional a 80mm (suficiente para 42-48 colunas)
             
             egui::Frame::none()
                 .fill(egui::Color32::WHITE)
@@ -92,7 +92,7 @@ impl ReceiptViewer {
                                 let mut text = egui::RichText::new(&line.text)
                                     .color(egui::Color32::BLACK)
                                     .family(egui::FontFamily::Monospace)
-                                    .size(line.font_size as f32 + 2.0);
+                                    .size(line.font_size as f32 + 1.0); // Ajuste fino no tamanho
                                 
                                 if line.emphasis {
                                     text = text.strong();
@@ -104,7 +104,7 @@ impl ReceiptViewer {
                                     text = text.underline();
                                 }
                                 
-                                ui.label(text);
+                                ui.add(egui::Label::new(text).wrap(false));
                             }
                         });
                     }

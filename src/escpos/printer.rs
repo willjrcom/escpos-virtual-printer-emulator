@@ -18,14 +18,12 @@ impl PaperWidth {
         }
     }
     
-    pub fn get_max_chars(&self, font_size: u32) -> u32 {
-        let dots = self.get_width_dots();
-        // Calculer le nombre max de caractères selon la taille de police
-        match font_size {
-            8..=12 => dots / 8,   // Police normale
-            13..=16 => dots / 10, // Police moyenne
-            17..=24 => dots / 12, // Police grande
-            _ => dots / 8,        // Par défaut
+    pub fn get_max_chars(&self, _font_size: u32) -> u32 {
+        // Valores padrão para impressoras térmicas ESC/POS
+        match self {
+            PaperWidth::Width50mm => 32, // Comum em impressoras de 58mm
+            PaperWidth::Width78mm => 42, // Comum em impressoras de 80mm
+            PaperWidth::Width80mm => 42, // Comum em impressoras de 80mm (padrão)
         }
     }
 }
