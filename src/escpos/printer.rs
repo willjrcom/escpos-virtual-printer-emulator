@@ -213,8 +213,8 @@ impl PrinterState {
         // Rendu du texte (simplifié)
         let mut y_offset = 0;
         for line in &self.buffer {
-            if !line.is_empty() {
-                self.render_text_line(&mut image, line, y_offset);
+            if !line.text.is_empty() {
+                self.render_text_line(&mut image, &line.text, y_offset);
             }
             y_offset += self.line_height;
         }
