@@ -97,6 +97,10 @@ impl PrinterState {
             EscPosCommand::SetFontSize(size) => {
                 self.font_size = *size;
             }
+            EscPosCommand::SetCodePage(_code_page) => {
+                // The parser handles decoding, so we don't need to do anything here
+                // but we could store it if we wanted to show it in the UI
+            }
             EscPosCommand::Unknown(_) => {
                 // Ignorer les commandes inconnues
             }

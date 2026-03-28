@@ -68,8 +68,8 @@ impl SettingsPanel {
         let os = env::consts::OS;
         if os == "windows" {
             self.install_windows_printer();
-        } else if os == "linux" {
-            self.install_linux_printer();
+        } else if os == "linux" || os == "macos" {
+            self.install_unix_printer(os);
         } else {
             println!("❌ Unsupported OS for printer installation");
         }
@@ -103,38 +103,69 @@ impl SettingsPanel {
         }
     }
 
-    fn install_linux_printer(&self) {
-    let output = Command::new("bash")
-        .args([
-            "-c",
-            "if command -v lpstat &>/dev/null; then \
-                echo 'Installing Linux printer...'; \
-                sudo lpadmin -p ESC_POS_Linux_Printer -E -v socket://127.0.0.1:9100 -m raw && \
-                sudo lpadmin -d ESC_POS_Linux_Printer && \
-                echo 'Linux printer installed successfully!'; \
-            else \
-                echo 'CUPS not found. Please install CUPS first.'; \
-            fi"
-        ])
-        .output();
+    fn install_unix_printer(&self, os: &str) {
+        let printer_name = if os == "macos" { "ESC_POS_Virtual_Printer" } else { "ESC_POS_Linux_Printer" };
+        let display_name = if os == "macos" { "macOS" } else { "Linux" };
+        
+        let install_cmd = if os == "macos" {
+            // macOS: Use custom PPD to bypass raw restriction
+            let mut ppd_path = std::env::current_dir().unwrap_or_default();
+            ppd_path.push("resources");
+            ppd_path.push("macos_generic_text.ppd");
+            
+            if ppd_path.exists() {
+                format!(
+                    "sudo lpadmin -p {} -E -v socket://127.0.0.1:9100 -P '{}' && sudo lpadmin -d {}",
+                    printer_name, ppd_path.display(), printer_name
+                )
+            } else {
+                // Fallback to -m raw if PPD is not found (will likely fail on modern macOS but good to have)
+                format!(
+                    "sudo lpadmin -p {} -E -v socket://127.0.0.1:9100 -m raw && sudo lpadmin -d {}",
+                    printer_name, printer_name
+                )
+            }
+        } else {
+            // Linux: Standard raw queue
+            format!(
+                "sudo lpadmin -p {} -E -v socket://127.0.0.1:9100 -m raw && sudo lpadmin -d {}",
+                printer_name, printer_name
+            )
+        };
 
-    match output {
-        Ok(out) => {
-            let stdout = String::from_utf8_lossy(&out.stdout);
-            let stderr = String::from_utf8_lossy(&out.stderr);
+        let output = Command::new("bash")
+            .args([
+                "-c",
+                &format!(
+                    "if command -v lpstat &>/dev/null; then \
+                        echo 'Installing {} printer...'; \
+                        {} && \
+                        echo '{} printer installed successfully!'; \
+                    else \
+                        echo 'CUPS not found. Please install CUPS first.'; \
+                    fi",
+                    display_name, install_cmd, display_name
+                )
+            ])
+            .output();
 
-            println!("stdout:\n{}", stdout);
-            println!("stderr:\n{}", stderr);
+        match output {
+            Ok(out) => {
+                let stdout = String::from_utf8_lossy(&out.stdout);
+                let stderr = String::from_utf8_lossy(&out.stderr);
 
-            if !stderr.is_empty() {
-                println!("⚠️  CUPS reported some errors — printer may not have been installed.");
+                println!("stdout:\n{}", stdout);
+                println!("stderr:\n{}", stderr);
+
+                if !stderr.is_empty() {
+                    println!("⚠️  CUPS reported some errors — printer may not have been installed.");
+                }
+            }
+            Err(e) => {
+                println!("❌ Failed to run installation script: {}", e);
             }
         }
-        Err(e) => {
-            println!("❌ Failed to run installation script: {}", e);
-        }
     }
-}
 
     fn uninstall_printer(&self) {
         let os = env::consts::OS;
@@ -149,17 +180,21 @@ impl SettingsPanel {
                 ])
                 .output()
         } else {
-
+            let printer_name = if os == "macos" { "ESC_POS_Virtual_Printer" } else { "ESC_POS_Linux_Printer" };
             Command::new("bash")
                 .args([
                     "-c",
-                    "if command -v lpadmin &>/dev/null; then \
-                        echo 'Removing Linux ESC/POS printer...'; \
-                        sudo lpadmin -x ESC_POS_Linux_Printer && \
-                        echo 'Printer uninstalled successfully'; \
-                     else \
-                        echo 'CUPS not installed'; \
-                     fi"
+                    &format!(
+                        "if command -v lpadmin &>/dev/null; then \
+                            echo 'Removing {} printer...'; \
+                            sudo lpadmin -x {} && \
+                            echo 'Printer uninstalled successfully'; \
+                         else \
+                            echo 'CUPS not installed'; \
+                         fi",
+                        if os == "macos" { "macOS" } else { "Linux" },
+                        printer_name
+                    )
                 ])
                 .output()
         };
@@ -193,10 +228,11 @@ impl SettingsPanel {
                 ])
                 .output()
         } else {
+            let printer_name = if os == "macos" { "ESC_POS_Virtual_Printer" } else { "ESC_POS_Linux_Printer" };
             Command::new("sh")
                 .args([
                     "-c",
-                    "lpstat -p 2>/dev/null | grep -w 'ESC_POS_Linux_Printer'"
+                    &format!("lpstat -p 2>/dev/null | grep -w '{}'", printer_name)
                 ])
                 .output()
         };
@@ -214,9 +250,9 @@ impl SettingsPanel {
                     }
                 } else {
                     if stdout.trim().is_empty() {
-                        println!("ℹ️  Printer not installed on Linux");
+                        println!("ℹ️  Printer not installed on {}", if os == "macos" { "macOS" } else { "Linux" });
                     } else {
-                        println!("✅ Printer installed on Linux");
+                        println!("✅ Printer installed on {}", if os == "macos" { "macOS" } else { "Linux" });
                     }
                 }
             }
@@ -237,9 +273,13 @@ impl SettingsPanel {
                     "Test-NetConnection -ComputerName 127.0.0.1 -Port 9100 -WarningAction SilentlyContinue | Select-Object -ExpandProperty TcpTestSucceeded"
                 ])
                 .output()
+        } else if os == "macos" {
+            Command::new("sh")
+                .args(["-c", "lsof -i :9100 | grep LISTEN"])
+                .output()
         } else {
             Command::new("sh")
-                .args(["-c", "ss -ltn 'sport = :9100'"])
+                .args(["-c", "ss -ltn 'sport = :9100' | grep :9100"])
                 .output()
         };
 
@@ -254,9 +294,9 @@ impl SettingsPanel {
                 };
 
                 if port_open {
-                    println!("✅ Port 9100 is open");
+                    println!("✅ Port 9100 is open (Emulator is running)");
                 } else {
-                    println!("❌ Port 9100 is closed");
+                    println!("❌ Port 9100 is closed (Check if emulator is active)");
                 }
             }
             Err(e) => {
