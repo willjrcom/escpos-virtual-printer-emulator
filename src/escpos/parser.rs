@@ -47,10 +47,24 @@ impl EscPosParser {
                         break; // Attendre plus de données
                     }
                 }
+                b'\x1D' => {
+                    // Séquence GS
+                    if i + 1 < self.buffer.len() {
+                        let (command, consumed) = self.parse_gs_command(&self.buffer[i..])?;
+                        if let Some(cmd) = command {
+                            commands.push(cmd);
+                            i += consumed;
+                        } else {
+                            break; // Attendre plus de données
+                        }
+                    } else {
+                        break; // Attendre plus de données
+                    }
+                }
                 _ => {
                     // Texte normal
                     let text_start = i;
-                    while i < self.buffer.len() && self.buffer[i] != b'\x1B' && self.buffer[i] != b'\n' && self.buffer[i] != b'\r' {
+                    while i < self.buffer.len() && self.buffer[i] != b'\x1B' && self.buffer[i] != b'\x1D' && self.buffer[i] != b'\n' && self.buffer[i] != b'\r' {
                         i += 1;
                     }
                     if i > text_start {
@@ -205,6 +219,40 @@ impl EscPosParser {
             // Commande inconnue
             _ => {
                 Ok((Some(EscPosCommand::Unknown(vec![b'\x1B', data[1]])), 2))
+            }
+        }
+    }
+
+    fn parse_gs_command(&self, data: &[u8]) -> Result<(Option<EscPosCommand>, usize)> {
+        if data.len() < 2 {
+            return Ok((None, 0));
+        }
+
+        match data[1] {
+            // GS V - Paper Cut
+            b'V' => {
+                if data.len() < 3 {
+                    return Ok((None, 0));
+                }
+                let m = data[2];
+                if m == 0 || m == 1 || m == 48 || m == 49 {
+                    // GS V n
+                    Ok((Some(EscPosCommand::CutPaper), 3))
+                } else if m == 65 || m == 66 {
+                    // GS V m n
+                    if data.len() < 4 {
+                        Ok((None, 0))
+                    } else {
+                        Ok((Some(EscPosCommand::CutPaper), 4))
+                    }
+                } else {
+                    Ok((Some(EscPosCommand::Unknown(vec![b'\x1D', b'V', m])), 3))
+                }
+            }
+
+            // Commande GS inconnue
+            _ => {
+                Ok((Some(EscPosCommand::Unknown(vec![b'\x1D', data[1]])), 2))
             }
         }
     }
