@@ -25,6 +25,7 @@ pub enum EscPosCommand {
     
     // Commandes de contrôle
     InitializePrinter,
+    SetCodePage(u8),
     
     // Commandes inconnues
     Unknown(Vec<u8>),

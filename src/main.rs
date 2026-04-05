@@ -33,6 +33,6 @@ async fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "ESC/POS Virtual Printer Emulator",
         options,
-        Box::new(|_cc| Box::new(EscPosEmulatorApp::new(emulator_state))),
+        Box::new(|cc| Box::new(EscPosEmulatorApp::new(emulator_state, cc))),
     )
 }

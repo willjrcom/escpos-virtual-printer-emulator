@@ -36,11 +36,22 @@ impl Default for EscPosEmulatorApp {
 }
 
 impl EscPosEmulatorApp {
-    pub fn new(emulator_state: std::sync::Arc<tokio::sync::Mutex<EmulatorState>>) -> Self {
+    pub fn new(emulator_state: std::sync::Arc<tokio::sync::Mutex<EmulatorState>>, cc: &eframe::CreationContext<'_>) -> Self {
+        Self::configure_fonts(&cc.egui_ctx);
         Self {
             emulator_state,
             ..Default::default()
         }
+    }
+
+    fn configure_fonts(ctx: &eframe::egui::Context) {
+        let fonts = eframe::egui::FontDefinitions::default();
+        
+        // Ensure we use a font that supports Latin-1 characters
+        // On most systems, egui's default font (Ubuntu) should work for ½, ¼, etc.
+        // if they are properly encoded. But we can explicitly add ranges if needed.
+        
+        ctx.set_fonts(fonts);
     }
 }
 
